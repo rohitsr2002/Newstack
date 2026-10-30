@@ -10,10 +10,10 @@ import (
 )
 
 type TodoHandler struct {
-	store *storage.Store
+	store storage.Store
 }
 
-func NewTodoHandler(store *storage.Store) *TodoHandler {
+func NewTodoHandler(store storage.Store) *TodoHandler {
 	return &TodoHandler{store: store}
 }
 

@@ -23,13 +23,14 @@ type Todo struct {
 }
 
 type TodoStats struct {
-	Total       int `json:"total"`
-	Completed   int `json:"completed"`
-	Active      int `json:"active"`
-	Overdue     int `json:"overdue"`
-	HighCount   int `json:"high_priority"`
-	MediumCount int `json:"medium_priority"`
-	LowCount    int `json:"low_priority"`
+	Total        int    `json:"total"`
+	Completed    int    `json:"completed"`
+	Active       int    `json:"active"`
+	Overdue      int    `json:"overdue"`
+	HighCount    int    `json:"high_priority"`
+	MediumCount  int    `json:"medium_priority"`
+	LowCount     int    `json:"low_priority"`
+	DatabaseType string `json:"database_type,omitempty"`
 }
 
 type CreateTodoRequest struct {

@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -14,11 +16,35 @@ import (
 	"todo-app/internal/storage"
 )
 
+// loadEnv loads key-value pairs from a .env file into environment variables
+func loadEnv(filepath string) {
+	data, err := os.ReadFile(filepath)
+	if err != nil {
+		return
+	}
+
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			k := strings.TrimSpace(parts[0])
+			v := strings.TrimSpace(parts[1])
+			v = strings.Trim(v, `"'`)
+			if os.Getenv(k) == "" {
+				_ = os.Setenv(k, v)
+			}
+		}
+	}
+}
+
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		next.ServeHTTP(w, r)
-		// Only log API and page requests, keep static asset noise low
 		if r.URL.Path == "/" || len(r.URL.Path) >= 4 && r.URL.Path[:4] == "/api" {
 			log.Printf("[%s] %s - %v", r.Method, r.URL.Path, time.Since(start))
 		}
@@ -26,15 +52,42 @@ func loggingMiddleware(next http.Handler) http.Handler {
 }
 
 func main() {
+	loadEnv(".env")
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
-	storagePath := "data/todos.json"
-	store, err := storage.NewStore(storagePath)
-	if err != nil {
-		log.Fatalf("Fatal: unable to initialize storage: %v", err)
+	databaseURL := os.Getenv("DATABASE_URL")
+	var store storage.Store
+	var dbType string
+
+	if databaseURL != "" {
+		log.Println("🔌 Connecting to PostgreSQL database...")
+		pgStore, err := storage.NewPostgresStore(databaseURL)
+		if err != nil {
+			log.Printf("⚠️ Unable to connect to PostgreSQL: %v", err)
+			log.Println("🔄 Falling back to local JSON file storage (data/todos.json)...")
+			jsonStore, err := storage.NewJSONStore("data/todos.json")
+			if err != nil {
+				log.Fatalf("Fatal: unable to initialize JSON fallback storage: %v", err)
+			}
+			store = jsonStore
+			dbType = "JSON File (Fallback)"
+		} else {
+			store = pgStore
+			dbType = "PostgreSQL"
+			log.Println("✅ Connected to PostgreSQL successfully! Tables and migrations verified.")
+		}
+	} else {
+		log.Println("ℹ️ No DATABASE_URL specified. Initializing local JSON storage...")
+		jsonStore, err := storage.NewJSONStore("data/todos.json")
+		if err != nil {
+			log.Fatalf("Fatal: unable to initialize JSON storage: %v", err)
+		}
+		store = jsonStore
+		dbType = "JSON File"
 	}
 
 	todoHandler := handlers.NewTodoHandler(store)
@@ -68,8 +121,8 @@ func main() {
 
 	go func() {
 		fmt.Println("==================================================")
-		fmt.Printf("🚀 Todo App server is running at http://localhost:%s\n", port)
-		fmt.Println("📁 Local storage: " + storagePath)
+		fmt.Printf("🚀 Todo App server running at http://localhost:%s\n", port)
+		fmt.Printf("🗄️ Database: %s\n", dbType)
 		fmt.Println("⚡ Press Ctrl+C to stop the server")
 		fmt.Println("==================================================")
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -79,6 +132,10 @@ func main() {
 
 	<-stop
 	log.Println("Shutting down server gracefully...")
+
+	if closer, ok := store.(io.Closer); ok {
+		_ = closer.Close()
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

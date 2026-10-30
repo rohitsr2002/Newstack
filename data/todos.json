@@ -28,9 +28,9 @@
     "category": "General",
     "priority": "medium",
     "due_date": "2026-10-30",
-    "completed": true,
+    "completed": false,
     "created_at": "2026-10-30T15:41:20.849405+05:30",
-    "updated_at": "2026-10-30T15:41:24.148632+05:30"
+    "updated_at": "2026-10-30T15:53:46.533374+05:30"
   },
   {
     "id": "todo-001",

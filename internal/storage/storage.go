@@ -16,19 +16,19 @@ import (
 	"todo-app/internal/models"
 )
 
-type Store struct {
+type JSONStore struct {
 	mu       sync.RWMutex
 	filePath string
 	todos    map[string]*models.Todo
 }
 
-func NewStore(filePath string) (*Store, error) {
+func NewJSONStore(filePath string) (*JSONStore, error) {
 	dir := filepath.Dir(filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create directory for todos: %w", err)
 	}
 
-	store := &Store{
+	store := &JSONStore{
 		filePath: filePath,
 		todos:    make(map[string]*models.Todo),
 	}
@@ -53,7 +53,7 @@ func generateID() string {
 	return hex.EncodeToString(bytes)
 }
 
-func (s *Store) seedInitialData() {
+func (s *JSONStore) seedInitialData() {
 	now := time.Now()
 	today := now.Format("2006-01-02")
 	tomorrow := now.AddDate(0, 0, 1).Format("2006-01-02")
@@ -122,7 +122,7 @@ func (s *Store) seedInitialData() {
 	}
 }
 
-func (s *Store) loadFromFile() error {
+func (s *JSONStore) loadFromFile() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -143,7 +143,7 @@ func (s *Store) loadFromFile() error {
 	return nil
 }
 
-func (s *Store) saveToFileLocked() error {
+func (s *JSONStore) saveToFileLocked() error {
 	list := make([]*models.Todo, 0, len(s.todos))
 	for _, t := range s.todos {
 		list = append(list, t)
@@ -157,7 +157,7 @@ func (s *Store) saveToFileLocked() error {
 	return os.WriteFile(s.filePath, data, 0644)
 }
 
-func (s *Store) GetAll(search, status, priority, category, sortBy string) []*models.Todo {
+func (s *JSONStore) GetAll(search, status, priority, category, sortBy string) []*models.Todo {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -242,7 +242,7 @@ func (s *Store) GetAll(search, status, priority, category, sortBy string) []*mod
 	return result
 }
 
-func (s *Store) GetByID(id string) (*models.Todo, bool) {
+func (s *JSONStore) GetByID(id string) (*models.Todo, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -254,7 +254,7 @@ func (s *Store) GetByID(id string) (*models.Todo, bool) {
 	return &clone, true
 }
 
-func (s *Store) Create(req models.CreateTodoRequest) (*models.Todo, error) {
+func (s *JSONStore) Create(req models.CreateTodoRequest) (*models.Todo, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -295,7 +295,7 @@ func (s *Store) Create(req models.CreateTodoRequest) (*models.Todo, error) {
 	return &clone, nil
 }
 
-func (s *Store) Update(id string, req models.UpdateTodoRequest) (*models.Todo, error) {
+func (s *JSONStore) Update(id string, req models.UpdateTodoRequest) (*models.Todo, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -335,7 +335,7 @@ func (s *Store) Update(id string, req models.UpdateTodoRequest) (*models.Todo, e
 	return &clone, nil
 }
 
-func (s *Store) ToggleComplete(id string) (*models.Todo, error) {
+func (s *JSONStore) ToggleComplete(id string) (*models.Todo, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -355,7 +355,7 @@ func (s *Store) ToggleComplete(id string) (*models.Todo, error) {
 	return &clone, nil
 }
 
-func (s *Store) Delete(id string) error {
+func (s *JSONStore) Delete(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -367,7 +367,7 @@ func (s *Store) Delete(id string) error {
 	return s.saveToFileLocked()
 }
 
-func (s *Store) ClearCompleted() (int, error) {
+func (s *JSONStore) ClearCompleted() (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -388,7 +388,7 @@ func (s *Store) ClearCompleted() (int, error) {
 	return count, nil
 }
 
-func (s *Store) GetStats() models.TodoStats {
+func (s *JSONStore) GetStats() models.TodoStats {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -416,5 +416,6 @@ func (s *Store) GetStats() models.TodoStats {
 		}
 	}
 
+	stats.DatabaseType = "Local JSON File"
 	return stats
 }

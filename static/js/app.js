@@ -55,6 +55,7 @@
     badgeActive: document.getElementById('badge-active'),
     badgeCompleted: document.getElementById('badge-completed'),
     footerCount: document.getElementById('footer-count'),
+    footerDb: document.getElementById('footer-db'),
     // Modals
     taskModal: document.getElementById('task-modal'),
     taskForm: document.getElementById('task-form'),
@@ -156,6 +157,12 @@
     elements.badgeCompleted.textContent = completed;
 
     elements.footerCount.textContent = `${state.todos.length} item${state.todos.length === 1 ? '' : 's'} displayed`;
+
+    if (elements.footerDb && state.stats.database_type) {
+      elements.footerDb.textContent = state.stats.database_type === 'PostgreSQL'
+        ? '🐘 PostgreSQL Active'
+        : `📁 ${state.stats.database_type}`;
+    }
   }
 
   function renderTasks() {

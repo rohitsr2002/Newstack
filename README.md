@@ -1,8 +1,9 @@
 # ⚡ Zenith TaskFlow - Go CRUD Todo Application
 
-A full-stack, responsive, and modern Todo CRUD application built with **Go** for the backend REST API and **Vanilla HTML5 / CSS3 / JavaScript** for the UI.
+A full-stack, responsive, and modern Todo CRUD application built with **Go** for the backend REST API, **PostgreSQL** (with automatic fallback to JSON storage) for persistence, and **Vanilla HTML5 / CSS3 / JavaScript** for the UI.
 
 ![Go Version](https://img.shields.io/badge/Go-1.27-00ADD8?style=flat&logo=go)
+![Database](https://img.shields.io/badge/Database-PostgreSQL_|_JSON-336791?logo=postgresql)
 ![Architecture](https://img.shields.io/badge/Architecture-REST_API_+_SPA-6366f1)
 ![UI](https://img.shields.io/badge/Design-Glassmorphism_&_Dark_Mode-a855f7)
 
@@ -20,17 +21,43 @@ A full-stack, responsive, and modern Todo CRUD application built with **Go** for
   - Filter tabs: All, Active, Completed.
   - Granular filters by Priority (High, Medium, Low) and Category (Work, Backend, Frontend, Design, Health, Study, General).
   - Dynamic Sorting: Newest First, Oldest First, Due Date, Priority Level, Alphabetical.
+- **Database Persistence**:
+  - **PostgreSQL**: Native SQL connection pool (`database/sql` + `github.com/lib/pq`).
+  - **Automatic Migrations**: Automatically creates the `todos` table and indexes upon server startup.
+  - **Zero-Downtime Fallback**: If PostgreSQL is not configured or offline, it gracefully falls back to local JSON storage (`data/todos.json`).
 - **Modern UI & Aesthetics**:
   - Curated glassmorphism palette with ambient glow accents.
   - Light & Dark mode switch (persisted in `localStorage`).
   - Native `<dialog>` modal with backdrop blur and accessible keyboard controls.
   - Keyboard shortcuts (`N` for new task, `/` for search, `Esc` to close).
   - Toast notification system for instantaneous user feedback.
-- **Robust Go Backend**:
-  - Built with Go's standard library (`net/http` enhanced routing).
-  - Thread-safe storage with read/write mutexes (`sync.RWMutex`).
-  - Automatic JSON persistence to `data/todos.json` with pre-seeded sample tasks on first launch.
-  - Graceful server shutdown on `SIGINT` / `SIGTERM`.
+  - Live Database indicator badge in the footer (`🐘 PostgreSQL Active`).
+
+---
+
+## 🗄️ Database Setup & Configuration
+
+Configure your PostgreSQL connection in [.env](file:///.env):
+
+```env
+DATABASE_URL="postgresql://rohitrohra@localhost:5432/todos?sslmode=disable"
+PORT=8080
+```
+
+### PostgreSQL Table Schema (Auto-Created)
+```sql
+CREATE TABLE IF NOT EXISTS todos (
+    id VARCHAR(64) PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    category VARCHAR(100) NOT NULL DEFAULT 'General',
+    priority VARCHAR(20) NOT NULL DEFAULT 'medium',
+    due_date VARCHAR(20) NOT NULL DEFAULT '',
+    completed BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
 
 ---
 
@@ -41,14 +68,8 @@ A full-stack, responsive, and modern Todo CRUD application built with **Go** for
 In the project root directory:
 
 ```bash
+# Restart the server to apply the PostgreSQL connection
 go run .
-```
-
-Or build an executable binary:
-
-```bash
-go build -o todo-app .
-./todo-app
 ```
 
 ### 2. Access the UI
@@ -71,7 +92,7 @@ http://localhost:8080
 | `PATCH` | `/api/todos/{id}/toggle` | Quick toggle completion status |
 | `DELETE` | `/api/todos/{id}` | Delete task by ID |
 | `POST` | `/api/todos/clear-completed` | Batch delete all completed tasks |
-| `GET` | `/api/stats` | Retrieve metrics summary (total, active, completed, overdue, priority breakdown) |
+| `GET` | `/api/stats` | Retrieve metrics summary (total, active, completed, overdue, priority breakdown, database type) |
 
 ---
 
@@ -79,13 +100,16 @@ http://localhost:8080
 
 ```
 Newstack/
-├── main.go                     # Server initialization, routing & graceful shutdown
-├── go.mod                      # Go module declaration
+├── .env                        # PostgreSQL connection string & server port
+├── main.go                     # Server initialization, .env loader, DB connector & graceful shutdown
+├── go.mod                      # Go module declaration with github.com/lib/pq
 ├── internal/
 │   ├── models/
 │   │   └── todo.go             # Todo domain structs & request types
 │   ├── storage/
-│   │   └── storage.go          # Thread-safe in-memory + JSON file persistence store
+│   │   ├── interface.go        # Common Store interface
+│   │   ├── postgres.go         # PostgreSQL database implementation (auto-migrated)
+│   │   └── storage.go          # JSON fallback store
 │   └── handlers/
 │       └── handlers.go         # REST API HTTP handlers
 ├── static/
@@ -95,5 +119,5 @@ Newstack/
 │   └── js/
 │       └── app.js              # Client state, AJAX fetch calls, keyboard shortcuts & toasts
 └── data/
-    └── todos.json              # Auto-created persistent storage file
+    └── todos.json              # Fallback local storage
 ```
